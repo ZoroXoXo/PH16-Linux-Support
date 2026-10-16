@@ -142,4 +142,4 @@ Generated build directories (`src/` and `pkg/`) and package archives should gene
 
 ## License
 
-Predator Sense is distributed under the MIT License. See [LICENSE](LICENSE) for details.
+Predator Sense is distributed under the GNU General Public License v3.0 or later. See [LICENSE](LICENSE) for details.
