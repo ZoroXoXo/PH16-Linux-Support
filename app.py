@@ -18,6 +18,19 @@ REFRESH_MS = 2000
 PROFILE_PATH = "/sys/firmware/acpi/platform_profile"
 PROFILE_CHOICES_PATH = "/sys/firmware/acpi/platform_profile_choices"
 PROFILE_HELPER = "/usr/local/libexec/predator-control-set-profile"
+LIGHTING_TOOL_CANDIDATES = [os.path.expanduser("~/.local/bin/lamparray-kbd"), "/usr/bin/lamparray-kbd"]
+ANIMATION_HELPER_NAME = "predator-kbd-effects.py"
+LIGHTING_ANIMATIONS = ["Breathing", "Wave", "Meteor", "Snake", "Twinkling", "Shifting"]
+LIGHTING_PRESETS = {
+    "Predator Blue": "0080ff",
+    "Ice White": "dcecff",
+    "Red": "ff3030",
+    "Purple": "a050ff",
+    "Green": "30d878",
+    "Cyan": "00d7ff",
+    "Amber": "ff9f1c",
+    "Pink": "ff4fa3",
+}
 
 
 def read_text(path):
@@ -217,6 +230,34 @@ def gpu_info():
     return result
 
 
+def lighting_tool():
+    """Find the per-user or system-installed lamparray-kbd executable."""
+    for candidate in LIGHTING_TOOL_CANDIDATES:
+        if os.path.isfile(candidate) and os.access(candidate, os.X_OK):
+            return candidate
+    return None
+
+
+def run_lighting_command(*args):
+    """Run the keyboard lighting utility without a shell or elevated privileges."""
+    tool = lighting_tool()
+    if not tool:
+        return False, "lamparray-kbd not found. Install it in ~/.local/bin first."
+    try:
+        result = subprocess.run(
+            [tool, *map(str, args)],
+            text=True, capture_output=True, check=False, timeout=20,
+        )
+    except subprocess.TimeoutExpired:
+        return False, "Lighting command timed out."
+    except OSError as exc:
+        return False, f"Could not run lighting utility: {exc}"
+    if result.returncode == 0:
+        return True, (result.stdout or "Lighting command completed.").strip()
+    detail = (result.stderr or result.stdout or "Lighting command failed").strip()
+    return False, detail[-260:]
+
+
 def platform_profiles():
     current = read_text(PROFILE_PATH) or "Not exposed"
     choices = (read_text(PROFILE_CHOICES_PATH) or "").split()
@@ -366,6 +407,15 @@ class PredatorControl(Gtk.Application):
         self.profile_dropdown = None
         self.profile_status = None
         self.profile_model_values = []
+        self.lighting_preset = None
+        self.lighting_brightness = None
+        self.lighting_mode = None
+        self.lighting_colors = None
+        self.lighting_keys = None
+        self.lighting_status = None
+        self.lighting_animation = None
+        self.lighting_speed = None
+        self.animation_process = None
 
     def do_activate(self):
         if self.window:
@@ -391,7 +441,7 @@ class PredatorControl(Gtk.Application):
         heading.set_halign(Gtk.Align.START)
         root.append(heading)
 
-        subtitle = Gtk.Label(label="Acer Predator Helios 16 · Hardware monitoring and platform profiles")
+        subtitle = Gtk.Label(label="Acer Predator Helios 16 · Monitoring, profiles and keyboard RGB")
         subtitle.add_css_class("dim-label")
         subtitle.set_halign(Gtk.Align.START)
         root.append(subtitle)
@@ -401,6 +451,100 @@ class PredatorControl(Gtk.Application):
         self.thermal_grid = self.add_section(root, "Temperature sensors")
         self.gpu_grid = self.add_section(root, "NVIDIA GPU")
         self.profile_grid = self.add_section(root, "Performance profile")
+
+        self.lighting_grid = self.add_section(root, "Keyboard lighting · RGB")
+        self.lighting_grid.attach(
+            Gtk.Label(label="Mode", halign=Gtk.Align.START), 0, 0, 1, 1
+        )
+        self.lighting_mode = Gtk.DropDown.new_from_strings(
+            ["Solid colour", "Gradient", "Zones", "Per-key", "Animated"]
+        )
+        self.lighting_mode.set_selected(0)
+        self.lighting_mode.set_hexpand(True)
+        self.lighting_grid.attach(self.lighting_mode, 1, 0, 1, 1)
+
+        self.lighting_grid.attach(
+            Gtk.Label(label="Base preset", halign=Gtk.Align.START), 0, 1, 1, 1
+        )
+        self.lighting_preset = Gtk.DropDown.new_from_strings(list(LIGHTING_PRESETS.keys()))
+        self.lighting_preset.set_selected(0)
+        self.lighting_preset.set_hexpand(True)
+        self.lighting_grid.attach(self.lighting_preset, 1, 1, 1, 1)
+
+        self.lighting_grid.attach(
+            Gtk.Label(label="Gradient / zone colours", halign=Gtk.Align.START), 0, 2, 1, 1
+        )
+        self.lighting_colors = Gtk.Entry()
+        self.lighting_colors.set_placeholder_text("ff0000, ff8800, 0000ff")
+        self.lighting_colors.set_text("ff0000, 0000ff")
+        self.lighting_colors.set_hexpand(True)
+        self.lighting_grid.attach(self.lighting_colors, 1, 2, 1, 1)
+
+        self.lighting_grid.attach(
+            Gtk.Label(label="Per-key overrides", halign=Gtk.Align.START), 0, 3, 1, 1
+        )
+        self.lighting_keys = Gtk.Entry()
+        self.lighting_keys.set_placeholder_text("w=00aaff a=00aaff s=00aaff d=00aaff")
+        self.lighting_keys.set_hexpand(True)
+        self.lighting_grid.attach(self.lighting_keys, 1, 3, 1, 1)
+
+        self.lighting_grid.attach(Gtk.Label(label="Animated effect", halign=Gtk.Align.START), 0, 4, 1, 1)
+        self.lighting_animation = Gtk.DropDown.new_from_strings(LIGHTING_ANIMATIONS)
+        self.lighting_animation.set_selected(1)
+        self.lighting_animation.set_hexpand(True)
+        self.lighting_grid.attach(self.lighting_animation, 1, 4, 1, 1)
+
+        self.lighting_grid.attach(Gtk.Label(label="Animation speed", halign=Gtk.Align.START), 0, 5, 1, 1)
+        self.lighting_speed = Gtk.Scale.new_with_range(Gtk.Orientation.HORIZONTAL, 1, 10, 1)
+        self.lighting_speed.set_value(5)
+        self.lighting_speed.set_draw_value(True)
+        self.lighting_speed.set_value_pos(Gtk.PositionType.RIGHT)
+        self.lighting_speed.set_hexpand(True)
+        self.lighting_grid.attach(self.lighting_speed, 1, 5, 1, 1)
+
+        brightness_label = Gtk.Label(label="Brightness", halign=Gtk.Align.START)
+        self.lighting_grid.attach(brightness_label, 0, 6, 1, 1)
+        self.lighting_brightness = Gtk.Scale.new_with_range(
+            Gtk.Orientation.HORIZONTAL, 0, 100, 5
+        )
+        self.lighting_brightness.set_value(100)
+        self.lighting_brightness.set_draw_value(True)
+        self.lighting_brightness.set_value_pos(Gtk.PositionType.RIGHT)
+        self.lighting_brightness.set_hexpand(True)
+        self.lighting_grid.attach(self.lighting_brightness, 1, 6, 1, 1)
+
+        lighting_buttons = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=8)
+        lighting_buttons.set_halign(Gtk.Align.START)
+        self.lighting_grid.attach(lighting_buttons, 0, 7, 2, 1)
+
+        apply_lighting = Gtk.Button(label="Apply effect")
+        apply_lighting.connect("clicked", self.apply_lighting)
+        lighting_buttons.append(apply_lighting)
+
+        auto_lighting = Gtk.Button(label="Firmware lighting")
+        auto_lighting.connect("clicked", self.set_firmware_lighting)
+        lighting_buttons.append(auto_lighting)
+
+        stop_lighting = Gtk.Button(label="Stop animation")
+        stop_lighting.connect("clicked", self.stop_lighting_animation)
+        lighting_buttons.append(stop_lighting)
+
+        lighting_hint = Gtk.Label(
+            label="For Gradient and Zones, enter comma-separated colours (hex or names). "
+                  "Per-key overrides use names from lamparray-kbd info, e.g. w=00aaff."
+        )
+        lighting_hint.set_wrap(True)
+        lighting_hint.set_halign(Gtk.Align.START)
+        lighting_hint.add_css_class("dim-label")
+        self.lighting_grid.attach(lighting_hint, 0, 8, 2, 1)
+
+        self.lighting_status = Gtk.Label(
+            label="Choose a mode and apply it. Firmware lighting restores the keyboard's built-in effect."
+        )
+        self.lighting_status.set_wrap(True)
+        self.lighting_status.set_halign(Gtk.Align.START)
+        self.lighting_status.add_css_class("dim-label")
+        self.lighting_grid.attach(self.lighting_status, 0, 9, 2, 1)
 
         history_frame = Gtk.Frame()
         history_frame.set_label("Live history · last 6 minutes")
@@ -463,9 +607,9 @@ class PredatorControl(Gtk.Application):
         root.append(self.profile_status)
 
         note = Gtk.Label(label=(
-            "Monitoring is read-only. Fan/PWM writes, charge thresholds, RGB controls, "
-            "and kernel-module changes remain disabled. Battery health and wear are "
-            "estimates based on firmware-reported capacity."
+            "Monitoring is read-only. Manual fan/PWM writes, charge thresholds, and kernel-module "
+            "changes remain disabled. Keyboard RGB uses the tested lamparray-kbd utility. "
+            "Battery health and wear are estimates based on firmware-reported capacity."
         ))
         note.set_wrap(True)
         note.set_halign(Gtk.Align.START)
@@ -532,6 +676,120 @@ class PredatorControl(Gtk.Application):
         if choices and current in choices:
             self.profile_dropdown.set_selected(choices.index(current))
         return GLib.SOURCE_CONTINUE
+
+    def stop_lighting_animation(self, _button=None):
+        process = self.animation_process
+        self.animation_process = None
+        if process is not None and process.poll() is None:
+            process.terminate()
+            try:
+                process.wait(timeout=2)
+            except subprocess.TimeoutExpired:
+                process.kill()
+                process.wait(timeout=2)
+        return process is not None
+
+    def start_lighting_animation(self, base_color, brightness):
+        self.stop_lighting_animation()
+        helper = os.path.join(os.path.dirname(os.path.abspath(__file__)), ANIMATION_HELPER_NAME)
+        if not os.path.isfile(helper):
+            self.lighting_status.set_text(f"Animation helper not found: {helper}. Keep it beside app.py.")
+            return
+        selected = self.lighting_animation.get_selected()
+        if selected >= len(LIGHTING_ANIMATIONS):
+            self.lighting_status.set_text("Select an animation first.")
+            return
+        effect = LIGHTING_ANIMATIONS[selected].lower()
+        speed = int(round(self.lighting_speed.get_value()))
+        try:
+            self.animation_process = subprocess.Popen(
+                ["python", helper, effect, base_color, str(brightness), str(speed)],
+                stdin=subprocess.DEVNULL, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL,
+                close_fds=True,
+            )
+        except OSError as exc:
+            self.lighting_status.set_text(f"Could not start animation: {exc}")
+            return
+        self.lighting_status.set_text(f"Running {effect.title()} at speed {speed}/10. Use Stop animation to end it.")
+
+    def apply_lighting(self, _button):
+        if any(value is None for value in (
+            self.lighting_preset, self.lighting_brightness, self.lighting_mode,
+            self.lighting_colors, self.lighting_keys, self.lighting_status,
+        )):
+            return
+
+        preset_names = list(LIGHTING_PRESETS.keys())
+        preset_index = self.lighting_preset.get_selected()
+        if preset_index >= len(preset_names):
+            self.lighting_status.set_text("Select a base colour preset first.")
+            return
+        preset_name = preset_names[preset_index]
+        base_color = LIGHTING_PRESETS[preset_name]
+        brightness = int(round(self.lighting_brightness.get_value()))
+        mode_index = self.lighting_mode.get_selected()
+        mode_names = ["Solid colour", "Gradient", "Zones", "Per-key", "Animated"]
+        if mode_index >= len(mode_names):
+            self.lighting_status.set_text("Select a lighting mode.")
+            return
+        if mode_index == 4:
+            self.start_lighting_animation(base_color, brightness)
+            return
+        self.stop_lighting_animation()
+        args = ["-b", str(brightness)]
+        if mode_index == 0:
+            args += ["solid", base_color]
+            description = f"{preset_name} solid colour"
+        elif mode_index in (1, 2):
+            colors = [part.strip().lstrip("#") for part in self.lighting_colors.get_text().split(",") if part.strip()]
+            if len(colors) < 2:
+                self.lighting_status.set_text("Enter at least two comma-separated colours, e.g. ff0000, 0000ff.")
+                return
+            import re
+            valid_color = re.compile(r"^(?:[0-9a-fA-F]{3}|[0-9a-fA-F]{6}|red|green|blue|white|cyan|magenta|yellow|orange|purple|pink|teal|warmwhite|coolwhite|off|black)$", re.IGNORECASE)
+            if any(not valid_color.fullmatch(color) for color in colors):
+                self.lighting_status.set_text("Use 3- or 6-digit hex colours or supported colour names; separate them with commas.")
+                return
+            args += ["gradient" if mode_index == 1 else "zones", *colors]
+            description = ("Gradient" if mode_index == 1 else f"{len(colors)}-zone lighting") + f" ({', '.join(colors)})"
+        else:
+            overrides_text = self.lighting_keys.get_text().strip()
+            if not overrides_text:
+                self.lighting_status.set_text("Enter per-key overrides, e.g. w=00aaff a=00aaff s=00aaff d=00aaff.")
+                return
+            import re
+            tokens = overrides_text.split()
+            valid_color = re.compile(r"^(?:[0-9a-fA-F]{3}|[0-9a-fA-F]{6}|red|green|blue|white|cyan|magenta|yellow|orange|purple|pink|teal|warmwhite|coolwhite|off|black)$", re.IGNORECASE)
+            for token in tokens:
+                if "=" not in token:
+                    self.lighting_status.set_text(f"Invalid key override '{token}'. Use key=colour, e.g. w=00aaff.")
+                    return
+                key, color = token.split("=", 1)
+                if not key or not color or not valid_color.fullmatch(color.lstrip("#")):
+                    self.lighting_status.set_text(f"Invalid key override '{token}'. Check the key name and colour.")
+                    return
+            args += ["keys", base_color, *tokens]
+            description = f"{preset_name} base with {len(tokens)} per-key override(s)"
+
+        ok, message = run_lighting_command(*args)
+        if ok:
+            self.lighting_status.set_text(f"Applied {description} at {brightness}% brightness.")
+        else:
+            self.lighting_status.set_text(f"Could not apply keyboard lighting: {message}")
+
+    def set_firmware_lighting(self, _button):
+        self.stop_lighting_animation()
+        ok, message = run_lighting_command("auto")
+        if ok:
+            self.lighting_status.set_text(
+                "Firmware lighting requested. The keyboard now controls its built-in effect."
+            )
+        else:
+            self.lighting_status.set_text(f"Could not restore firmware lighting: {message}")
+
+    def do_shutdown(self):
+        self.stop_lighting_animation()
+        Gtk.Application.do_shutdown(self)
 
     def apply_profile(self, _button):
         if not self.profile_model_values:
