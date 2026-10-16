@@ -29,24 +29,24 @@ what has---and has not---been validated.
 
 ![Predator Sense dashboard showing CPU and GPU temperatures, fan speeds,
 battery information, performance profile, and GPU
-telemetry](images/dashboard.png)
+telemetry](screenshots/predsense.png)
 
 ### Sensor monitoring and history
 
 ![Monitoring view showing temperature sensors and recent fan-speed and
-temperature history](images/monitoring.png)
+temperature history](screenshots/monitor.png)
 
 ### Keyboard lighting
 
 ![Keyboard lighting interface with mode, preset, colour, per-key
 override, animation, speed, and brightness
-controls](images/keyboard-rgb.png)
+controls](screenshots/rgb.png)
 
 ### Performance profiles
 
 ![Performance profile interface showing the current balanced profile,
 available profiles, and fan-control validation
-notice](images/performance.png)
+notice](screenshots/perfor.png)
 
 ## Current functionality
 
@@ -143,31 +143,3 @@ GitHub:
 *Monitor what the system exposes. Keep unvalidated hardware controls
 disabled.*
 :::
-
-## Screenshots
-
-### Dashboard
-![Predator Sense Dashboard](screenshots/predsense.png)
-
-### Performance Profiles
-![Performance Profiles](screenshots/perfor.png)
-
-### Keyboard RGB Controls
-![Keyboard RGB Controls](screenshots/rgb.png)
-
-### System Monitoring
-![System Monitoring](screenshots/monitor.png)
-
-## Screenshots
-
-### Dashboard
-![Predator Sense Dashboard](screenshots/predsense.png)
-
-### Performance Profiles
-![Performance Profiles](screenshots/perfor.png)
-
-### Keyboard RGB Controls
-![Keyboard RGB Controls](screenshots/rgb.png)
-
-### System Monitoring
-![System Monitoring](screenshots/monitor.png)
