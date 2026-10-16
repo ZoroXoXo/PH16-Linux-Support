@@ -1,43 +1,50 @@
-# Predator Control MVP
+# Predator Sense Arch Linux
 
-A small, read-only GTK4 monitoring app for Linux, starting with the Acer Predator Helios 16 PH16-72.
+A lightweight GTK4 prototype for monitoring and controlling selected platform features on Acer Predator laptops running Linux. Initial development target: Acer Predator Helios 16 PH16-72 on Arch Linux.
 
-## What it shows
+## Current features
 
-- Battery charge, status, cycle count, and estimated full-charge health when the kernel exposes the required values.
+- Battery charge, status, cycle count, and estimated full-charge health where the kernel exposes capacity data.
 - Fan RPM and temperature readings from `/sys/class/hwmon`.
-- Current ACPI platform profile and the profiles the firmware advertises.
-- Refreshes every two seconds.
+- Current platform profile and profiles exposed by the kernel.
+- Optional platform-profile switching via a fixed-purpose privileged helper.
+- Refreshes sensor data every two seconds.
 
-## Deliberate safety limits
-
-This MVP does **not** write to fan PWM files, change the platform profile, modify charge thresholds, or load/unload kernel modules. On this laptop, PWM files exist but their safe/manual-control behaviour has not been verified. The battery health percentage is an estimate based on kernel-reported full-charge capacity divided by design capacity, not a definitive battery diagnostic.
-
-## Install dependencies on Arch Linux
+## Install dependencies
 
 ```bash
-sudo pacman -S --needed python gtk4 python-gobject
+sudo pacman -S --needed python gtk4 python-gobject polkit
 ```
 
-## Run
+A graphical PolicyKit authentication agent must also be running in your desktop session for `pkexec` prompts to appear. Desktop environments usually provide one; minimal window-manager setups may require installing/enabling an agent separately.
 
-Extract the ZIP, then from the extracted directory:
+## Install the profile helper
+
+From the project directory:
+
+```bash
+sudo ./install-profile-helper.sh
+```
+
+This installs `predator-control-set-profile` as a root-owned executable at `/usr/local/libexec/`. The helper validates the requested profile against a fixed allowlist and the kernel's advertised choices, then writes only to `/sys/firmware/acpi/platform_profile`.
+
+Do not run the GTK app with `sudo`.
+
+## Run
 
 ```bash
 python app.py
 ```
 
-Do not run it with `sudo`; read-only sensor data should not need root privileges.
+Choose a profile and click **Apply profile**. The system may ask for authentication. If authorization is cancelled, the profile should remain unchanged.
 
-## Troubleshooting
+## Safety notes
 
-If `import gi` fails, verify that `python-gobject` is installed and that `python` is the system Python from Arch. If the app opens but a sensor is missing, inspect the available kernel interfaces:
+- Platform profiles are requests to firmware/kernel policy; they do not guarantee a specific CPU/GPU wattage or performance level.
+- Fan/PWM writes, battery charge thresholds, RGB control, and kernel-module management are not implemented.
+- Battery health is an estimate based on kernel-reported full-charge capacity divided by design capacity, not a definitive diagnostic.
+- This is an early prototype; verify readings against `sensors` and the relevant `/sys` interfaces on your hardware.
 
-```bash
-find /sys/class/power_supply -maxdepth 2 -type f
-find /sys/class/hwmon -maxdepth 2 -type f
-cat /sys/firmware/acpi/platform_profile
-cat /sys/firmware/acpi/platform_profile_choices
-```
+## Development status
 
-This is a first prototype; verify the displayed values against `sensors` and `/sys/class/power_supply/BAT1` on the target laptop.
+The GTK critical message observed during early testing did not prevent the window from working, but should be investigated separately. Test the app and profile helper on the target laptop before relying on it.

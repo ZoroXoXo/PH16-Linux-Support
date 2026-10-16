@@ -1,0 +1,42 @@
+#!/bin/bash
+# Root-owned, fixed-purpose helper. Do not make this file user-writable.
+set -eu
+
+PROFILE_PATH="/sys/firmware/acpi/platform_profile"
+CHOICES_PATH="/sys/firmware/acpi/platform_profile_choices"
+
+if [[ "${EUID}" -ne 0 ]]; then
+    echo "This helper must be run through pkexec." >&2
+    exit 1
+fi
+
+if [[ "$#" -ne 1 ]]; then
+    echo "Usage: predator-control-set-profile PROFILE" >&2
+    exit 2
+fi
+
+profile="$1"
+case "$profile" in
+    low-power|quiet|balanced|balanced-performance|performance) ;;
+    *)
+        echo "Unsupported profile: $profile" >&2
+        exit 2
+        ;;
+esac
+
+if [[ ! -r "$CHOICES_PATH" || ! -w "$PROFILE_PATH" ]]; then
+    echo "Kernel platform-profile interface is unavailable or not writable." >&2
+    exit 1
+fi
+
+choices="$(cat "$CHOICES_PATH")"
+case " $choices " in
+    *" $profile "*) ;;
+    *)
+        echo "Profile is not advertised by this machine's firmware." >&2
+        exit 1
+        ;;
+esac
+
+printf '%s\n' "$profile" > "$PROFILE_PATH"
+printf 'Platform profile set to %s\n' "$profile"
