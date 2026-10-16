@@ -505,8 +505,9 @@ class PredatorControl(Gtk.Application):
         dashboard.append(metrics)
         self.metric_labels = {}
         for i, (key, label) in enumerate([
-            ("cpu", "CPU PACKAGE"), ("gpu", "GPU TEMP"),
-            ("fan1", "FAN 1 RPM"), ("fan2", "FAN 2 RPM")
+            ("cpu", "CPU PACKAGE"), ("gpu", "GPU TEMP"), ("gpu_util", "GPU UTILISATION"),
+            ("fan1", "FAN 1 RPM"), ("fan2", "FAN 2 RPM"), ("battery", "BATTERY CHARGE"),
+            ("battery_health", "BATTERY HEALTH"), ("profile", "PERFORMANCE PROFILE")
         ]):
             card = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=7)
             card.add_css_class("metric-card")
@@ -518,7 +519,7 @@ class PredatorControl(Gtk.Application):
             value.set_halign(Gtk.Align.START)
             card.append(top)
             card.append(value)
-            metrics.attach(card, i % 2, i // 2, 1, 1)
+            metrics.attach(card, i % 3, i // 3, 1, 1)
             self.metric_labels[key] = value
 
         self.battery_grid = self.add_section(dashboard, "Battery")
@@ -704,7 +705,8 @@ class PredatorControl(Gtk.Application):
             grid.attach(right, 1, row, 1, 1)
 
     def refresh(self, *_args):
-        self.set_grid(self.battery_grid, battery_info())
+        battery = battery_info()
+        self.set_grid(self.battery_grid, battery)
         self.set_grid(self.fan_grid, fan_control_info())
         thermal = thermal_info() or {"Sensors": "No readable hwmon temperature sensors found"}
         self.set_grid(self.thermal_grid, thermal)
@@ -716,10 +718,15 @@ class PredatorControl(Gtk.Application):
             self.metric_labels["gpu"].set_text(f"{sample['gpu']:.1f} °C" if sample["gpu"] is not None else "—")
             self.metric_labels["fan1"].set_text(f"{sample['fan1']:.0f} RPM" if sample["fan1"] is not None else "—")
             self.metric_labels["fan2"].set_text(f"{sample['fan2']:.0f} RPM" if sample["fan2"] is not None else "—")
+            self.metric_labels["gpu_util"].set_text(gpu.get("GPU utilization", "—"))
+            self.metric_labels["battery"].set_text(battery.get("Charge", "—"))
+            self.metric_labels["battery_health"].set_text(battery.get("Estimated health", "—"))
         self.history.append(sample)
         self.history_graph.queue_draw()
 
         current, choices = platform_profiles()
+        if hasattr(self, "metric_labels"):
+            self.metric_labels["profile"].set_text(current if current != "Not exposed" else "—")
         self.set_grid(self.profile_grid, {
             "Current profile": current,
             "Available profiles": " ".join(choices) if choices else "Not exposed",
