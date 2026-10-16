@@ -12,12 +12,14 @@ source=(
   "predator-kbd-effects.py"
   "README.md"
   "predator-sense.png"
+  "LICENSE"
 )
-sha256sums=('SKIP' 'SKIP' 'SKIP' 'SKIP')
+sha256sums=('SKIP' 'SKIP' 'SKIP' 'SKIP' 'SKIP')
 
 package() {
   install -d "$pkgdir/opt/predator-sense"
-
+  install -Dm644 "$srcdir/LICENSE" \
+  "$pkgdir/opt/predator-sense/LICENSE"
   install -Dm644 "$srcdir/app.py" \
     "$pkgdir/opt/predator-sense/app.py"
   install -Dm644 "$srcdir/predator-kbd-effects.py" \
