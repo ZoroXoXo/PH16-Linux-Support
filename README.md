@@ -5,9 +5,11 @@
 
 **Built on Arch Linux · Hardware-aware · Open-source project**
 
-A practical attempt to close the gap between Acer's Windows-focused
-PredatorSense utility and the tools available to Linux users.
-:::
+> **Target hardware:** Acer Predator Helios 16 (PH16-72)  
+> **Development environment:** Arch Linux  
+> **Status:** Hardware-specific development; compatibility with other models has not been established.
+
+Predator Sense was developed and tested on the PH16-72. Sensor availability, performance-profile controls, and keyboard lighting may behave differently on other laptop models, firmware versions, and Linux configurations.
 
 ------------------------------------------------------------------------
 
@@ -108,7 +110,7 @@ notice](screenshots/perfor.png)
 
 ## Acknowledgements and Third-Party Projects
 
-Predator Sense was developed to address a gap in my own Linux workflow while using an Acer Predator Helios 16 (PH16-72) running Arch Linux. I wanted a convenient desktop interface for laptop controls and hardware monitoring.
+Predator Sense was developed to address a gap in my Linux workflow on the Acer Predator Helios 16 (PH16-72). I wanted a convenient desktop interface for laptop controls and hardware monitoring on Arch Linux.
 
 During development, I consulted existing open-source projects to research hardware interfaces and understand the available control mechanisms:
 
