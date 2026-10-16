@@ -1,145 +1,145 @@
-# Predator Sense
+::: {align="center"}
+# PREDATOR SENSE
 
-A lightweight GTK4 desktop application for monitoring and controlling supported hardware features on Acer Predator laptops running Arch Linux.
+### A Linux-focused control and monitoring dashboard for Acer Predator hardware
 
-Predator Sense is being developed and tested on an **Acer Predator Helios 16 (PH16-72)** running Arch Linux. Hardware support may vary across laptop models, firmware versions, and Linux configurations.
+**Built on Arch Linux · Hardware-aware · Open-source project**
 
-## Features
+A practical attempt to close the gap between Acer's Windows-focused
+PredatorSense utility and the tools available to Linux users.
+:::
 
-- **Dashboard:** A compact overview of system status and hardware metrics.
-- **Performance profiles:** View available platform profiles and apply supported profiles through the system's platform-profile interface.
-- **Hardware monitoring:** Display available CPU and GPU temperatures, fan RPM readings, battery information, and NVIDIA telemetry.
-- **Keyboard RGB:** Configure supported keyboard lighting, including colors, gradients, zones, per-key lighting, and animations.
-- **Live monitoring:** View recent temperature and fan-speed history.
-- **Desktop integration:** Launch Predator Sense from the application menu or terminal.
+------------------------------------------------------------------------
 
-Unavailable hardware readings are shown when the relevant information is not exposed by the system.
+## Why this project exists
 
-## Requirements
+Acer Predator laptops offer useful controls and system information
+through PredatorSense on Windows, but comparable support can be limited
+or fragmented on Linux. Predator Sense explores a unified interface for
+viewing hardware telemetry and interacting with supported platform
+controls from Arch Linux.
 
-- Arch Linux
-- Python
-- GTK4
-- PyGObject (`python-gobject`)
-- `nvidia-utils` for NVIDIA telemetry
-- `pkexec` for authenticated performance-profile changes
-- A supported Acer keyboard and the `lamparray-kbd` utility for keyboard lighting
+The goal is practical: make useful laptop information easier to inspect,
+while keeping hardware control conservative and clearly communicating
+what has---and has not---been validated.
 
-Some features require additional system configuration. Keyboard lighting support depends on the laptop's hardware and access to its HID device.
+## Screenshots
 
-## Installation
+### System overview
 
-### Install the Arch package
+![Predator Sense dashboard showing CPU and GPU temperatures, fan speeds,
+battery information, performance profile, and GPU
+telemetry](images/dashboard.png)
 
-If you have downloaded or built the package locally:
+### Sensor monitoring and history
 
-```bash
-sudo pacman -U ./predator-sense-0.1.0-1-any.pkg.tar.zst
-```
+![Monitoring view showing temperature sensors and recent fan-speed and
+temperature history](images/monitoring.png)
 
-Launch the application with:
+### Keyboard lighting
 
-```bash
-predator-sense
-```
+![Keyboard lighting interface with mode, preset, colour, per-key
+override, animation, speed, and brightness
+controls](images/keyboard-rgb.png)
 
-You can also search for **Predator Sense** in your desktop application's menu.
+### Performance profiles
 
-### Build from source
+![Performance profile interface showing the current balanced profile,
+available profiles, and fan-control validation
+notice](images/performance.png)
 
-Clone or download this repository, then install the runtime dependencies:
+## Current functionality
 
-```bash
-sudo pacman -S python gtk4 python-gobject
-```
+  -----------------------------------------------------------------------
+  Area                    Status                  Notes
+  ----------------------- ----------------------- -----------------------
+  System dashboard        Implemented             Presents detected
+                                                  CPU/GPU telemetry, fan
+                                                  RPM, battery
+                                                  information, and
+                                                  current performance
+                                                  profile.
 
-For NVIDIA telemetry, install:
+  Sensor monitoring       Implemented             Displays available
+                                                  sensor readings and
+                                                  recent in-memory
+                                                  history. The UI notes
+                                                  that samples are not
+                                                  logged to disk.
 
-```bash
-sudo pacman -S nvidia-utils
-```
+  Platform performance    Implemented,            Reads available
+  profiles                hardware-dependent      platform profiles and
+                                                  requests authorization
+                                                  for profile changes.
 
-Build the Arch package from the project directory:
+  Keyboard lighting       Interface present;      The screenshot shows
+  interface               hardware support should lighting controls.
+                          be verified             Confirm each mode and
+                                                  effect on the target
+                                                  keyboard before
+                                                  describing it as fully
+                                                  working.
 
-```bash
-makepkg -f
-```
+  Manual fan control      **Disabled / not        Fan readings are
+                          validated**             monitoring-only. Manual
+                                                  control remains
+                                                  disabled pending
+                                                  model-specific
+                                                  validation. The app
+                                                  does not write PWM
+                                                  files or change the
+                                                  embedded controller.
+  -----------------------------------------------------------------------
 
-Install the generated package:
+> **Hardware compatibility matters.** Available sensors, profiles,
+> keyboard-lighting behaviour, and control permissions can vary by
+> laptop model, firmware, kernel, and installed services. Screenshots
+> demonstrate the interface and observed readings on the development
+> machine, not universal compatibility.
 
-```bash
-sudo pacman -U ./predator-sense-0.1.0-1-any.pkg.tar.zst
-```
+## Safety approach
 
-The package recipe and generated package metadata are maintained in `PKGBUILD` and `.SRCINFO`.
+-   Fan monitoring is read-only.
+-   Manual fan control remains disabled until model-specific behaviour
+    can be validated safely.
+-   Performance-profile changes require authorization.
+-   Do not assume a visible UI control is functional on every device;
+    verify behaviour on the target hardware.
 
-## Keyboard lighting
+## Implementation and acknowledgements
 
-Keyboard lighting is handled by the separate `lamparray-kbd` utility and the `predator-kbd-effects.py` animation helper.
+This project was developed to address a practical Linux tooling gap and
+includes work built on or adapted from **two existing GitHub
+repositories**.
 
-The application expects the keyboard utility at one of these locations:
+**Upstream projects to credit before publishing:** 1.
+`[Repository name]` --- \[URL\] --- describe the code or component
+reused. 2. `[Repository name]` --- \[URL\] --- describe the code or
+component reused.
 
-- `~/.local/bin/lamparray-kbd`
-- `/usr/bin/lamparray-kbd`
+Please replace these placeholders with the exact repositories and
+identify the relevant files/components. Review each upstream project's
+licence and preserve any required notices. This README intentionally
+does not guess repository names or claim that all components were
+written from scratch.
 
-The animation helper is installed alongside the application.
+## Development status
 
-Keyboard lighting availability depends on the laptop's hardware, HID device access, and the utility's supported features.
+This is an actively developed, hardware-specific project. Some UI areas
+and controls may need further validation. Contributions, issue reports,
+and testing on other compatible Acer Predator models can help clarify
+the support matrix.
 
-## Performance profiles
+## Repository
 
-Predator Sense uses the Linux platform-profile interface and a separate privileged helper to apply supported profiles.
+GitHub:
+[`predator-sense-arch-linux`](https://github.com/ZoroXoX/predator-sense-arch-linux)
 
-The existing helper is located at:
+------------------------------------------------------------------------
 
-```text
-/usr/local/libexec/predator-control-set-profile
-```
+::: {align="center"}
+**Predator Sense · Linux laptop tooling**
 
-Profile changes require authorization through `pkexec`. Available profiles depend on the laptop firmware and the kernel configuration.
-
-## Safety and limitations
-
-- Fan RPM readings are monitoring-only. **Manual fan-speed control is intentionally disabled.**
-- The application does not perform raw embedded-controller writes to control fans.
-- Battery health and wear figures are estimates based on values exposed by the system.
-- Temperatures, fan readings, GPU metrics, and other telemetry may be unavailable on some configurations.
-- Performance-profile options depend on firmware and kernel support.
-- Keyboard RGB features depend on compatible hardware and HID access.
-
-This project is developed for personal use and is still evolving. Test hardware-control features carefully and report issues with relevant system details.
-
-## Development
-
-The main application is `app.py`. Keyboard animations are implemented in `predator-kbd-effects.py`.
-
-Packaging files:
-
-- `PKGBUILD` — Arch package recipe
-- `.SRCINFO` — package metadata generated from `PKGBUILD`
-- `predator-sense.png` — application icon
-- `LICENSE` — MIT license
-
-After changing `PKGBUILD`, regenerate package metadata:
-
-```bash
-makepkg --printsrcinfo > .SRCINFO
-```
-
-Build a new package:
-
-```bash
-makepkg -f
-```
-
-Install the updated build:
-
-```bash
-sudo pacman -U ./predator-sense-0.1.0-1-any.pkg.tar.zst
-```
-
-Generated build directories (`src/` and `pkg/`) and package archives should generally remain out of Git.
-
-## License
-
-Predator Sense is distributed under the GNU General Public License v3.0 or later. See [LICENSE](LICENSE) for details.
+*Monitor what the system exposes. Keep unvalidated hardware controls
+disabled.*
+:::
