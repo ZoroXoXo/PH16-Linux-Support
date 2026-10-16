@@ -423,77 +423,180 @@ class PredatorControl(Gtk.Application):
             return
 
         self.window = Gtk.ApplicationWindow(application=self, title=APP_TITLE)
-        self.window.set_default_size(760, 820)
+        self.window.set_default_size(1080, 760)
+        self.window.set_size_request(760, 600)
 
-        scroller = Gtk.ScrolledWindow()
-        scroller.set_policy(Gtk.PolicyType.NEVER, Gtk.PolicyType.AUTOMATIC)
-        self.window.set_child(scroller)
+        # App-local styling: restrained graphite surfaces and Predator-red accent.
+        css = Gtk.CssProvider()
+        css.load_from_data(b"""
+            window { background: #111318; color: #e8eaf0; }
+            .app-header { padding: 18px 22px 12px 22px; }
+            .app-title { font-size: 24px; font-weight: 800; color: #f4f5f7; }
+            .app-subtitle { color: #a4a9b4; font-size: 13px; }
+            .page-title { font-size: 18px; font-weight: 750; padding-bottom: 4px; }
+            .metric-card { background: #1b1e25; border: 1px solid #303540; border-radius: 12px; padding: 14px; }
+            .metric-label { color: #a4a9b4; font-size: 12px; }
+            .metric-value { color: #f5f6f8; font-size: 23px; font-weight: 750; }
+            .accent { color: #ff454f; }
+            frame { border: 1px solid #303540; border-radius: 10px; }
+            frame > label { color: #ff626a; font-weight: 650; padding: 0 5px; }
+            entry, dropdown, spinbutton { border-radius: 7px; }
+            button { border-radius: 8px; padding: 7px 12px; }
+            button.suggested-action { background: #d92d3a; color: white; }
+            .page-content { padding: 18px; }
+            .dim-label { color: #a4a9b4; }
+        """)
+        Gtk.StyleContext.add_provider_for_display(
+            self.window.get_display(), css, Gtk.STYLE_PROVIDER_PRIORITY_APPLICATION
+        )
 
-        root = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=12)
-        root.set_margin_top(18)
-        root.set_margin_bottom(18)
-        root.set_margin_start(18)
-        root.set_margin_end(18)
-        scroller.set_child(root)
-
-        heading = Gtk.Label(label="Predator Sense Arch Linux")
-        heading.add_css_class("title-1")
-        heading.set_halign(Gtk.Align.START)
-        root.append(heading)
-
-        subtitle = Gtk.Label(label="Acer Predator Helios 16 · Monitoring, profiles and keyboard RGB")
-        subtitle.add_css_class("dim-label")
+        outer = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=0)
+        self.window.set_child(outer)
+        header = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=5)
+        header.add_css_class("app-header")
+        title = Gtk.Label(label="PREDATOR SENSE")
+        title.add_css_class("app-title")
+        title.set_halign(Gtk.Align.START)
+        subtitle = Gtk.Label(label="ARCH LINUX  /  HELIOS 16  ·  SYSTEM CONTROL")
+        subtitle.add_css_class("app-subtitle")
         subtitle.set_halign(Gtk.Align.START)
-        root.append(subtitle)
+        header.append(title)
+        header.append(subtitle)
+        outer.append(header)
 
-        self.battery_grid = self.add_section(root, "Battery")
-        self.fan_grid = self.add_section(root, "Fan monitoring and safety")
-        self.thermal_grid = self.add_section(root, "Temperature sensors")
-        self.gpu_grid = self.add_section(root, "NVIDIA GPU")
-        self.profile_grid = self.add_section(root, "Performance profile")
+        switcher_box = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=8)
+        switcher_box.set_margin_start(20)
+        switcher_box.set_margin_end(20)
+        switcher_box.set_margin_bottom(8)
+        outer.append(switcher_box)
+        self.stack = Gtk.Stack()
+        self.stack.set_transition_type(Gtk.StackTransitionType.CROSSFADE)
+        self.stack.set_transition_duration(140)
+        self.stack.set_hexpand(True)
+        self.stack.set_vexpand(True)
+        switcher = Gtk.StackSwitcher()
+        switcher.set_stack(self.stack)
+        switcher.set_halign(Gtk.Align.START)
+        switcher_box.append(switcher)
+        outer.append(self.stack)
 
-        self.lighting_grid = self.add_section(root, "Keyboard lighting · RGB")
-        self.lighting_grid.attach(
-            Gtk.Label(label="Mode", halign=Gtk.Align.START), 0, 0, 1, 1
+        def make_page(name):
+            scroller = Gtk.ScrolledWindow()
+            scroller.set_policy(Gtk.PolicyType.NEVER, Gtk.PolicyType.AUTOMATIC)
+            content = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=14)
+            content.add_css_class("page-content")
+            content.set_margin_start(2)
+            content.set_margin_end(2)
+            scroller.set_child(content)
+            self.stack.add_titled(scroller, name.lower().replace(" ", "-"), name)
+            return content
+
+        def page_heading(parent, text):
+            label = Gtk.Label(label=text)
+            label.add_css_class("page-title")
+            label.set_halign(Gtk.Align.START)
+            parent.append(label)
+
+        # Dashboard: the most useful status blocks first.
+        dashboard = make_page("Dashboard")
+        page_heading(dashboard, "System overview")
+        metrics = Gtk.Grid(column_spacing=10, row_spacing=10)
+        metrics.set_column_homogeneous(True)
+        dashboard.append(metrics)
+        self.metric_labels = {}
+        for i, (key, label) in enumerate([
+            ("cpu", "CPU PACKAGE"), ("gpu", "GPU TEMP"),
+            ("fan1", "FAN 1 RPM"), ("fan2", "FAN 2 RPM")
+        ]):
+            card = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=7)
+            card.add_css_class("metric-card")
+            top = Gtk.Label(label=label)
+            top.add_css_class("metric-label")
+            top.set_halign(Gtk.Align.START)
+            value = Gtk.Label(label="Collecting…")
+            value.add_css_class("metric-value")
+            value.set_halign(Gtk.Align.START)
+            card.append(top)
+            card.append(value)
+            metrics.attach(card, i % 2, i // 2, 1, 1)
+            self.metric_labels[key] = value
+
+        self.battery_grid = self.add_section(dashboard, "Battery")
+        self.fan_grid = self.add_section(dashboard, "Fan monitoring & safety")
+        self.gpu_grid = self.add_section(dashboard, "NVIDIA GPU")
+
+        profile_page = make_page("Performance")
+        page_heading(profile_page, "Performance profile")
+        profile_intro = Gtk.Label(label="Choose a platform profile exposed by your kernel. Changes require authorization.")
+        profile_intro.set_wrap(True)
+        profile_intro.set_halign(Gtk.Align.START)
+        profile_intro.add_css_class("dim-label")
+        profile_page.append(profile_intro)
+        self.profile_grid = self.add_section(profile_page, "Current system profile")
+        profile_controls = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=8)
+        profile_controls.set_hexpand(True)
+        self.profile_dropdown = Gtk.DropDown.new_from_strings([])
+        self.profile_dropdown.set_hexpand(True)
+        profile_controls.append(self.profile_dropdown)
+        apply_button = Gtk.Button(label="Apply profile")
+        apply_button.add_css_class("suggested-action")
+        apply_button.connect("clicked", self.apply_profile)
+        profile_controls.append(apply_button)
+        profile_page.append(profile_controls)
+        self.profile_status = Gtk.Label(label="Profile changes require authorization.")
+        self.profile_status.set_wrap(True)
+        self.profile_status.set_halign(Gtk.Align.START)
+        self.profile_status.add_css_class("dim-label")
+        profile_page.append(self.profile_status)
+        self.manual_fan_button = Gtk.Button(label="Manual fan control disabled — validation pending")
+        self.manual_fan_button.set_sensitive(False)
+        self.manual_fan_button.set_tooltip_text(
+            "Disabled until manual control and recovery to automatic mode are verified for this laptop and kernel driver."
         )
-        self.lighting_mode = Gtk.DropDown.new_from_strings(
-            ["Solid colour", "Gradient", "Zones", "Per-key", "Animated"]
-        )
+        self.manual_fan_button.set_halign(Gtk.Align.START)
+        profile_page.append(self.manual_fan_button)
+        self.fan_safety_note = Gtk.Label(label=(
+            "Safety: monitoring is read-only. The app never writes to PWM files or changes the embedded controller."
+        ))
+        self.fan_safety_note.set_wrap(True)
+        self.fan_safety_note.set_halign(Gtk.Align.START)
+        self.fan_safety_note.add_css_class("dim-label")
+        profile_page.append(self.fan_safety_note)
+
+        lighting_page = make_page("Keyboard RGB")
+        page_heading(lighting_page, "Keyboard lighting")
+        lighting_intro = Gtk.Label(label="Custom colours and animated effects for the built-in keyboard LampArray.")
+        lighting_intro.set_wrap(True)
+        lighting_intro.set_halign(Gtk.Align.START)
+        lighting_intro.add_css_class("dim-label")
+        lighting_page.append(lighting_intro)
+        self.lighting_grid = self.add_section(lighting_page, "Lighting controls")
+        self.lighting_grid.attach(Gtk.Label(label="Mode", halign=Gtk.Align.START), 0, 0, 1, 1)
+        self.lighting_mode = Gtk.DropDown.new_from_strings(["Solid colour", "Gradient", "Zones", "Per-key", "Animated"])
         self.lighting_mode.set_selected(0)
         self.lighting_mode.set_hexpand(True)
         self.lighting_grid.attach(self.lighting_mode, 1, 0, 1, 1)
-
-        self.lighting_grid.attach(
-            Gtk.Label(label="Base preset", halign=Gtk.Align.START), 0, 1, 1, 1
-        )
+        self.lighting_grid.attach(Gtk.Label(label="Base preset", halign=Gtk.Align.START), 0, 1, 1, 1)
         self.lighting_preset = Gtk.DropDown.new_from_strings(list(LIGHTING_PRESETS.keys()))
         self.lighting_preset.set_selected(0)
         self.lighting_preset.set_hexpand(True)
         self.lighting_grid.attach(self.lighting_preset, 1, 1, 1, 1)
-
-        self.lighting_grid.attach(
-            Gtk.Label(label="Gradient / zone colours", halign=Gtk.Align.START), 0, 2, 1, 1
-        )
+        self.lighting_grid.attach(Gtk.Label(label="Gradient / zone colours", halign=Gtk.Align.START), 0, 2, 1, 1)
         self.lighting_colors = Gtk.Entry()
         self.lighting_colors.set_placeholder_text("ff0000, ff8800, 0000ff")
         self.lighting_colors.set_text("ff0000, 0000ff")
         self.lighting_colors.set_hexpand(True)
         self.lighting_grid.attach(self.lighting_colors, 1, 2, 1, 1)
-
-        self.lighting_grid.attach(
-            Gtk.Label(label="Per-key overrides", halign=Gtk.Align.START), 0, 3, 1, 1
-        )
+        self.lighting_grid.attach(Gtk.Label(label="Per-key overrides", halign=Gtk.Align.START), 0, 3, 1, 1)
         self.lighting_keys = Gtk.Entry()
         self.lighting_keys.set_placeholder_text("w=00aaff a=00aaff s=00aaff d=00aaff")
         self.lighting_keys.set_hexpand(True)
         self.lighting_grid.attach(self.lighting_keys, 1, 3, 1, 1)
-
         self.lighting_grid.attach(Gtk.Label(label="Animated effect", halign=Gtk.Align.START), 0, 4, 1, 1)
         self.lighting_animation = Gtk.DropDown.new_from_strings(LIGHTING_ANIMATIONS)
         self.lighting_animation.set_selected(1)
         self.lighting_animation.set_hexpand(True)
         self.lighting_grid.attach(self.lighting_animation, 1, 4, 1, 1)
-
         self.lighting_grid.attach(Gtk.Label(label="Animation speed", halign=Gtk.Align.START), 0, 5, 1, 1)
         self.lighting_speed = Gtk.Scale.new_with_range(Gtk.Orientation.HORIZONTAL, 1, 10, 1)
         self.lighting_speed.set_value(5)
@@ -501,125 +604,70 @@ class PredatorControl(Gtk.Application):
         self.lighting_speed.set_value_pos(Gtk.PositionType.RIGHT)
         self.lighting_speed.set_hexpand(True)
         self.lighting_grid.attach(self.lighting_speed, 1, 5, 1, 1)
-
-        brightness_label = Gtk.Label(label="Brightness", halign=Gtk.Align.START)
-        self.lighting_grid.attach(brightness_label, 0, 6, 1, 1)
-        self.lighting_brightness = Gtk.Scale.new_with_range(
-            Gtk.Orientation.HORIZONTAL, 0, 100, 5
-        )
+        self.lighting_grid.attach(Gtk.Label(label="Brightness", halign=Gtk.Align.START), 0, 6, 1, 1)
+        self.lighting_brightness = Gtk.Scale.new_with_range(Gtk.Orientation.HORIZONTAL, 0, 100, 5)
         self.lighting_brightness.set_value(100)
         self.lighting_brightness.set_draw_value(True)
         self.lighting_brightness.set_value_pos(Gtk.PositionType.RIGHT)
         self.lighting_brightness.set_hexpand(True)
         self.lighting_grid.attach(self.lighting_brightness, 1, 6, 1, 1)
-
         lighting_buttons = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=8)
         lighting_buttons.set_halign(Gtk.Align.START)
         self.lighting_grid.attach(lighting_buttons, 0, 7, 2, 1)
-
         apply_lighting = Gtk.Button(label="Apply effect")
+        apply_lighting.add_css_class("suggested-action")
         apply_lighting.connect("clicked", self.apply_lighting)
         lighting_buttons.append(apply_lighting)
-
         auto_lighting = Gtk.Button(label="Firmware lighting")
         auto_lighting.connect("clicked", self.set_firmware_lighting)
         lighting_buttons.append(auto_lighting)
-
         stop_lighting = Gtk.Button(label="Stop animation")
         stop_lighting.connect("clicked", self.stop_lighting_animation)
         lighting_buttons.append(stop_lighting)
-
-        lighting_hint = Gtk.Label(
-            label="For Gradient and Zones, enter comma-separated colours (hex or names). "
-                  "Per-key overrides use names from lamparray-kbd info, e.g. w=00aaff."
-        )
+        lighting_hint = Gtk.Label(label=(
+            "Gradient and Zones use comma-separated colours. Per-key overrides use key names from lamparray-kbd info."
+        ))
         lighting_hint.set_wrap(True)
         lighting_hint.set_halign(Gtk.Align.START)
         lighting_hint.add_css_class("dim-label")
         self.lighting_grid.attach(lighting_hint, 0, 8, 2, 1)
-
-        self.lighting_status = Gtk.Label(
-            label="Choose a mode and apply it. Firmware lighting restores the keyboard's built-in effect."
-        )
+        self.lighting_status = Gtk.Label(label="Choose a mode and apply it. Firmware lighting restores the keyboard's built-in effect.")
         self.lighting_status.set_wrap(True)
         self.lighting_status.set_halign(Gtk.Align.START)
         self.lighting_status.add_css_class("dim-label")
         self.lighting_grid.attach(self.lighting_status, 0, 9, 2, 1)
 
+        monitoring_page = make_page("Monitoring")
+        page_heading(monitoring_page, "Sensors & live history")
+        self.thermal_grid = self.add_section(monitoring_page, "Temperature sensors")
         history_frame = Gtk.Frame()
         history_frame.set_label("Live history · last 6 minutes")
-        history_box = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=6)
-        history_box.set_margin_top(8)
-        history_box.set_margin_bottom(8)
-        history_box.set_margin_start(8)
-        history_box.set_margin_end(8)
+        history_box = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=8)
+        history_box.set_margin_top(10)
+        history_box.set_margin_bottom(10)
+        history_box.set_margin_start(12)
+        history_box.set_margin_end(12)
         self.history = deque(maxlen=180)
         self.history_graph = HistoryGraph(self.history)
         history_box.append(self.history_graph)
-        history_hint = Gtk.Label(
-            label="Fan RPM and CPU/GPU temperatures. Samples stay in memory only; nothing is logged to disk."
-        )
+        history_hint = Gtk.Label(label="Fan RPM and CPU/GPU temperatures. Samples stay in memory only; nothing is logged to disk.")
         history_hint.set_wrap(True)
         history_hint.set_halign(Gtk.Align.START)
         history_hint.add_css_class("dim-label")
         history_box.append(history_hint)
         history_frame.set_child(history_box)
-        root.append(history_frame)
-
-        self.fan_safety_note = Gtk.Label(
-            label=(
-                "Manual fan control is intentionally disabled. The app only reads "
-                "fan RPM, PWM values, and driver-reported modes; it never writes to "
-                "PWM files or changes the embedded controller."
-            )
-        )
-        self.fan_safety_note.set_wrap(True)
-        self.fan_safety_note.set_halign(Gtk.Align.START)
-        self.fan_safety_note.add_css_class("dim-label")
-        root.append(self.fan_safety_note)
-
-        self.manual_fan_button = Gtk.Button(
-            label="Manual fan control disabled — validation pending"
-        )
-        self.manual_fan_button.set_sensitive(False)
-        self.manual_fan_button.set_tooltip_text(
-            "Disabled until manual control and recovery to automatic mode are verified "
-            "for this laptop and kernel driver."
-        )
-        self.manual_fan_button.set_halign(Gtk.Align.START)
-        root.append(self.manual_fan_button)
-
-        controls = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=8)
-        controls.set_halign(Gtk.Align.START)
-        root.append(controls)
-
-        self.profile_dropdown = Gtk.DropDown.new_from_strings([])
-        self.profile_dropdown.set_size_request(230, -1)
-        controls.append(self.profile_dropdown)
-
-        apply_button = Gtk.Button(label="Apply profile")
-        apply_button.connect("clicked", self.apply_profile)
-        controls.append(apply_button)
-
-        self.profile_status = Gtk.Label(label="Profile changes require authorization.")
-        self.profile_status.set_wrap(True)
-        self.profile_status.set_halign(Gtk.Align.START)
-        root.append(self.profile_status)
-
+        monitoring_page.append(history_frame)
+        refresh = Gtk.Button(label="Refresh now")
+        refresh.set_halign(Gtk.Align.START)
+        refresh.connect("clicked", lambda _button: self.refresh())
+        monitoring_page.append(refresh)
         note = Gtk.Label(label=(
-            "Monitoring is read-only. Manual fan/PWM writes, charge thresholds, and kernel-module "
-            "changes remain disabled. Keyboard RGB uses the tested lamparray-kbd utility. "
-            "Battery health and wear are estimates based on firmware-reported capacity."
+            "Battery health and wear are estimates based on firmware-reported capacity. Sensor availability depends on the kernel and hardware."
         ))
         note.set_wrap(True)
         note.set_halign(Gtk.Align.START)
         note.add_css_class("dim-label")
-        root.append(note)
-
-        refresh = Gtk.Button(label="Refresh now")
-        refresh.set_halign(Gtk.Align.START)
-        refresh.connect("clicked", lambda _button: self.refresh())
-        root.append(refresh)
+        monitoring_page.append(note)
 
         self.refresh()
         GLib.timeout_add(REFRESH_MS, self.refresh)
@@ -660,8 +708,15 @@ class PredatorControl(Gtk.Application):
         self.set_grid(self.fan_grid, fan_control_info())
         thermal = thermal_info() or {"Sensors": "No readable hwmon temperature sensors found"}
         self.set_grid(self.thermal_grid, thermal)
-        self.set_grid(self.gpu_grid, gpu_info())
-        self.history.append(history_sample())
+        gpu = gpu_info()
+        self.set_grid(self.gpu_grid, gpu)
+        sample = history_sample()
+        if hasattr(self, "metric_labels"):
+            self.metric_labels["cpu"].set_text(f"{sample['cpu']:.1f} °C" if sample["cpu"] is not None else "—")
+            self.metric_labels["gpu"].set_text(f"{sample['gpu']:.1f} °C" if sample["gpu"] is not None else "—")
+            self.metric_labels["fan1"].set_text(f"{sample['fan1']:.0f} RPM" if sample["fan1"] is not None else "—")
+            self.metric_labels["fan2"].set_text(f"{sample['fan2']:.0f} RPM" if sample["fan2"] is not None else "—")
+        self.history.append(sample)
         self.history_graph.queue_draw()
 
         current, choices = platform_profiles()
