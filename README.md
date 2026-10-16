@@ -1,4 +1,4 @@
-::: {align="center"}
+
 # PREDATOR SENSE
 
 ### A Linux-focused control and monitoring dashboard for Acer Predator hardware
@@ -106,22 +106,24 @@ notice](screenshots/perfor.png)
 -   Do not assume a visible UI control is functional on every device;
     verify behaviour on the target hardware.
 
-## Implementation and acknowledgements
+## Acknowledgements and Third-Party Projects
 
-This project was developed to address a practical Linux tooling gap and
-includes work built on or adapted from **two existing GitHub
-repositories**.
+Predator Sense was developed to address a gap in my own Linux workflow while using an Acer Predator Helios 16 (PH16-72) running Arch Linux. I wanted a convenient desktop interface for laptop controls and hardware monitoring.
 
-**Upstream projects to credit before publishing:** 1.
-`[Repository name]` --- \[URL\] --- describe the code or component
-reused. 2. `[Repository name]` --- \[URL\] --- describe the code or
-component reused.
+During development, I consulted existing open-source projects to research hardware interfaces and understand the available control mechanisms:
 
-Please replace these placeholders with the exact repositories and
-identify the relevant files/components. Review each upstream project's
-licence and preserve any required notices. This README intentionally
-does not guess repository names or claim that all components were
-written from scratch.
+- **[Predator Sense for Linux](https://github.com/cleyton1986/predator-sense)** — consulted as a reference during research into Acer Predator hardware controls and Linux support.
+- **[lamparray-kbd](https://github.com/usamathpc/lamparray-kbd)** — used for keyboard LampArray integration and lighting functionality.
+
+Predator Sense provides its own GTK4 desktop interface, dashboard, telemetry presentation, performance-profile workflow, and application packaging. The project builds on existing Linux tooling where appropriate rather than claiming to implement every hardware interface from scratch.
+
+Keyboard lighting depends on `lamparray-kbd`. Please refer to its upstream repository for its source, license, and attribution details.
+
+Hardware support is model-specific. Fan RPM monitoring is separate from manual fan-speed control; manual fan control remains unverified on the PH16-72 and is not presented as a working feature.
+
+### Licenses
+
+Predator Sense is licensed under the GNU General Public License v3.0 or later. The `lamparray-kbd` utility is a separate dependency; see its upstream repository for its license and notices. Other third-party projects retain their respective licenses.
 
 ## Development status
 
@@ -130,16 +132,4 @@ and controls may need further validation. Contributions, issue reports,
 and testing on other compatible Acer Predator models can help clarify
 the support matrix.
 
-## Repository
 
-GitHub:
-[`predator-sense-arch-linux`](https://github.com/ZoroXoX/predator-sense-arch-linux)
-
-------------------------------------------------------------------------
-
-::: {align="center"}
-**Predator Sense · Linux laptop tooling**
-
-*Monitor what the system exposes. Keep unvalidated hardware controls
-disabled.*
-:::
