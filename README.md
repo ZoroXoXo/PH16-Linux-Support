@@ -143,3 +143,17 @@ GitHub:
 *Monitor what the system exposes. Keep unvalidated hardware controls
 disabled.*
 :::
+
+## Screenshots
+
+### Dashboard
+![Predator Sense Dashboard](screenshots/predsense.png)
+
+### Performance Profiles
+![Performance Profiles](screenshots/perfor.png)
+
+### Keyboard RGB Controls
+![Keyboard RGB Controls](screenshots/rgb.png)
+
+### System Monitoring
+![System Monitoring](screenshots/monitor.png)
