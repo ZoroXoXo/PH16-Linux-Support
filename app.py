@@ -5,6 +5,8 @@ import csv
 import glob
 import os
 import subprocess
+import time
+from collections import deque
 
 import gi
 
@@ -90,17 +92,68 @@ def battery_info():
     return result
 
 
+def find_acer_hwmon():
+    """Return the Acer hwmon path without assuming a fixed hwmon number."""
+    for hwmon in sorted(glob.glob("/sys/class/hwmon/hwmon*")):
+        if read_text(os.path.join(hwmon, "name")) == "acer":
+            return hwmon
+    return None
+
+
+def fan_control_info():
+    """Report fan telemetry and control modes; never write to PWM files."""
+    hwmon = find_acer_hwmon()
+    if not hwmon:
+        return {
+            "Fan controller": "Acer hwmon device not found",
+            "Manual control": "Disabled — hardware interface not detected",
+        }
+
+    result = {}
+    fan_paths = sorted(glob.glob(os.path.join(hwmon, "fan*_input")))
+    if not fan_paths:
+        result["Fan speed"] = "No Acer fan RPM attributes found"
+
+    all_auto = True
+    mode_count = 0
+    for path in fan_paths:
+        stem = os.path.basename(path).replace("_input", "")
+        number = stem.removeprefix("fan")
+        value = read_text(path)
+        result[f"Fan {number} speed"] = f"{value} RPM" if value and value.isdigit() else "Not available"
+
+        pwm_path = os.path.join(hwmon, f"pwm{number}")
+        enable_path = os.path.join(hwmon, f"pwm{number}_enable")
+        pwm_value = read_text(pwm_path)
+        enable_value = read_text(enable_path)
+
+        if pwm_value is not None:
+            result[f"Fan {number} raw PWM"] = pwm_value
+        if enable_value is not None:
+            mode_count += 1
+            if enable_value == "2":
+                result[f"Fan {number} mode"] = "Automatic (driver reports mode 2)"
+            else:
+                result[f"Fan {number} mode"] = f"Mode value {enable_value} (not assumed safe)"
+                all_auto = False
+        else:
+            result[f"Fan {number} mode"] = "Mode attribute not exposed"
+            all_auto = False
+
+    if mode_count and all_auto:
+        result["Safety status"] = "All detected fan modes report automatic"
+    else:
+        result["Safety status"] = "Automatic mode not confirmed for every detected fan"
+
+    result["Manual control"] = "Disabled pending model-specific validation"
+    return result
+
+
 def thermal_info():
-    """Discover hwmon devices dynamically; never write to fan/PWM files."""
+    """Discover hwmon temperature sensors dynamically; never write to sysfs."""
     result = {}
     for hwmon in sorted(glob.glob("/sys/class/hwmon/hwmon*")):
         name = read_text(os.path.join(hwmon, "name")) or os.path.basename(hwmon)
-
-        for path in sorted(glob.glob(os.path.join(hwmon, "fan*_input"))):
-            stem = os.path.basename(path).replace("_input", "")
-            value = read_text(path)
-            if value and value.isdigit():
-                result[f"{name}: {stem}"] = f"{int(value)} RPM"
 
         for path in sorted(glob.glob(os.path.join(hwmon, "temp*_input"))):
             stem = os.path.basename(path).replace("_input", "")
@@ -170,6 +223,142 @@ def platform_profiles():
     return current, choices
 
 
+def history_sample():
+    """Collect one read-only sample for the in-memory history graph."""
+    sample = {"time": time.time(), "fan1": None, "fan2": None, "cpu": None, "gpu": None}
+    acer = find_acer_hwmon()
+    if acer:
+        for key in ("fan1", "fan2"):
+            value = read_text(os.path.join(acer, f"{key}_input"))
+            try:
+                sample[key] = float(value) if value is not None else None
+            except ValueError:
+                pass
+
+    # Prefer the package temperature label instead of guessing a core number.
+    for hwmon in sorted(glob.glob("/sys/class/hwmon/hwmon*")):
+        if read_text(os.path.join(hwmon, "name")) != "coretemp":
+            continue
+        for label_path in glob.glob(os.path.join(hwmon, "temp*_label")):
+            if read_text(label_path) == "Package id 0":
+                input_path = label_path[:-len("_label")] + "_input"
+                value = read_text(input_path)
+                try:
+                    sample["cpu"] = float(value) / 1000.0 if value is not None else None
+                except ValueError:
+                    pass
+                break
+        break
+
+    try:
+        proc = subprocess.run(
+            ["nvidia-smi", "--query-gpu=temperature.gpu", "--format=csv,noheader,nounits"],
+            text=True, capture_output=True, check=False, timeout=3,
+        )
+        if proc.returncode == 0:
+            value = proc.stdout.strip().splitlines()[0].strip()
+            if value not in ("", "N/A", "[Not Supported]"):
+                sample["gpu"] = float(value)
+    except (FileNotFoundError, subprocess.TimeoutExpired, ValueError, IndexError):
+        pass
+
+    return sample
+
+
+class HistoryGraph(Gtk.DrawingArea):
+    """Small live chart; samples are held in memory and are never written to disk."""
+
+    def __init__(self, history):
+        super().__init__()
+        self.history = history
+        self.set_content_height(370)
+        self.set_hexpand(True)
+        self.set_draw_func(self.draw)
+
+    @staticmethod
+    def _text(cr, x, y, value, size=10):
+        cr.select_font_face("Sans", 0, 0)
+        cr.set_font_size(size)
+        cr.move_to(x, y)
+        cr.show_text(str(value))
+
+    @staticmethod
+    def _line(cr, points, color, line_width=1.8):
+        if len(points) < 2:
+            return
+        cr.set_source_rgb(*color)
+        cr.set_line_width(line_width)
+        cr.move_to(points[0][0], points[0][1])
+        for x, y in points[1:]:
+            cr.line_to(x, y)
+        cr.stroke()
+
+    def draw(self, _area, cr, width, height, _user_data=None):
+        # Use two panels so RPM and temperatures each have a meaningful scale.
+        left, right = 54, max(60, width - 16)
+        gap = 38
+        panel_height = max(90, (height - gap - 48) / 2)
+        top1, bottom1 = 28, 28 + panel_height
+        top2, bottom2 = bottom1 + gap, bottom1 + gap + panel_height
+        cr.set_source_rgb(0.50, 0.52, 0.55)
+        self._text(cr, 8, 16, "Fan speed (RPM)", 11)
+        self._text(cr, 8, top2 - 12, "Temperature (°C)", 11)
+
+        data = list(self.history)
+        if len(data) < 2:
+            cr.set_source_rgb(0.50, 0.52, 0.55)
+            self._text(cr, left + 8, top1 + 30, "Collecting samples…")
+            self._text(cr, left + 8, top2 + 30, "CPU and GPU temperatures appear when available")
+            return
+
+        def draw_panel(top, bottom, low, high, ticks):
+            cr.set_line_width(1)
+            cr.set_source_rgba(0.50, 0.52, 0.55, 0.30)
+            for tick in ticks:
+                y = bottom - (tick - low) / (high - low) * (bottom - top)
+                cr.move_to(left, y)
+                cr.line_to(right, y)
+                cr.stroke()
+                cr.set_source_rgb(0.50, 0.52, 0.55)
+                self._text(cr, 5, y + 3, str(tick), 9)
+                cr.set_source_rgba(0.50, 0.52, 0.55, 0.30)
+
+        draw_panel(top1, bottom1, 0, 6000, (0, 2000, 4000, 6000))
+        draw_panel(top2, bottom2, 20, 100, (20, 40, 60, 80, 100))
+
+        t0, t1 = data[0]["time"], data[-1]["time"]
+        span = max(1.0, t1 - t0)
+
+        def points_for(key, top, bottom, low, high):
+            points = []
+            for item in data:
+                value = item.get(key)
+                if value is None:
+                    continue
+                x = left + (item["time"] - t0) / span * (right - left)
+                value = max(low, min(high, value))
+                y = bottom - (value - low) / (high - low) * (bottom - top)
+                points.append((x, y))
+            return points
+
+        # Distinct colors identify series; the graph is observational only.
+        self._line(cr, points_for("fan1", top1, bottom1, 0, 6000), (0.20, 0.55, 0.85))
+        self._line(cr, points_for("fan2", top1, bottom1, 0, 6000), (0.85, 0.45, 0.20))
+        self._line(cr, points_for("cpu", top2, bottom2, 20, 100), (0.75, 0.25, 0.25))
+        self._line(cr, points_for("gpu", top2, bottom2, 20, 100), (0.20, 0.60, 0.35))
+
+        cr.set_source_rgb(0.20, 0.55, 0.85)
+        self._text(cr, left, height - 8, "Fan 1")
+        cr.set_source_rgb(0.85, 0.45, 0.20)
+        self._text(cr, left + 58, height - 8, "Fan 2")
+        cr.set_source_rgb(0.75, 0.25, 0.25)
+        self._text(cr, left + 116, height - 8, "CPU package")
+        cr.set_source_rgb(0.20, 0.60, 0.35)
+        self._text(cr, left + 218, height - 8, "GPU")
+        cr.set_source_rgb(0.50, 0.52, 0.55)
+        self._text(cr, max(left, right - 82), height - 8, f"{int(span)}s window")
+
+
 class PredatorControl(Gtk.Application):
     def __init__(self):
         super().__init__(application_id="org.predatorsense.archlinux")
@@ -208,9 +397,53 @@ class PredatorControl(Gtk.Application):
         root.append(subtitle)
 
         self.battery_grid = self.add_section(root, "Battery")
-        self.thermal_grid = self.add_section(root, "Fans & temperatures")
+        self.fan_grid = self.add_section(root, "Fan monitoring and safety")
+        self.thermal_grid = self.add_section(root, "Temperature sensors")
         self.gpu_grid = self.add_section(root, "NVIDIA GPU")
         self.profile_grid = self.add_section(root, "Performance profile")
+
+        history_frame = Gtk.Frame()
+        history_frame.set_label("Live history · last 6 minutes")
+        history_box = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=6)
+        history_box.set_margin_top(8)
+        history_box.set_margin_bottom(8)
+        history_box.set_margin_start(8)
+        history_box.set_margin_end(8)
+        self.history = deque(maxlen=180)
+        self.history_graph = HistoryGraph(self.history)
+        history_box.append(self.history_graph)
+        history_hint = Gtk.Label(
+            label="Fan RPM and CPU/GPU temperatures. Samples stay in memory only; nothing is logged to disk."
+        )
+        history_hint.set_wrap(True)
+        history_hint.set_halign(Gtk.Align.START)
+        history_hint.add_css_class("dim-label")
+        history_box.append(history_hint)
+        history_frame.set_child(history_box)
+        root.append(history_frame)
+
+        self.fan_safety_note = Gtk.Label(
+            label=(
+                "Manual fan control is intentionally disabled. The app only reads "
+                "fan RPM, PWM values, and driver-reported modes; it never writes to "
+                "PWM files or changes the embedded controller."
+            )
+        )
+        self.fan_safety_note.set_wrap(True)
+        self.fan_safety_note.set_halign(Gtk.Align.START)
+        self.fan_safety_note.add_css_class("dim-label")
+        root.append(self.fan_safety_note)
+
+        self.manual_fan_button = Gtk.Button(
+            label="Manual fan control disabled — validation pending"
+        )
+        self.manual_fan_button.set_sensitive(False)
+        self.manual_fan_button.set_tooltip_text(
+            "Disabled until manual control and recovery to automatic mode are verified "
+            "for this laptop and kernel driver."
+        )
+        self.manual_fan_button.set_halign(Gtk.Align.START)
+        root.append(self.manual_fan_button)
 
         controls = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=8)
         controls.set_halign(Gtk.Align.START)
@@ -280,9 +513,12 @@ class PredatorControl(Gtk.Application):
 
     def refresh(self, *_args):
         self.set_grid(self.battery_grid, battery_info())
-        thermal = thermal_info() or {"Sensors": "No readable hwmon fan/temperature sensors found"}
+        self.set_grid(self.fan_grid, fan_control_info())
+        thermal = thermal_info() or {"Sensors": "No readable hwmon temperature sensors found"}
         self.set_grid(self.thermal_grid, thermal)
         self.set_grid(self.gpu_grid, gpu_info())
+        self.history.append(history_sample())
+        self.history_graph.queue_draw()
 
         current, choices = platform_profiles()
         self.set_grid(self.profile_grid, {
