@@ -36,3 +36,8 @@ Thumbs.db
 # Logs and temporary files
 *.log
 *.tmp
+
+# Arch Linux package build artifacts
+/pkg/
+/src/
+/predator-sense-*.pkg.tar.zst

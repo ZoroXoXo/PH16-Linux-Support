@@ -1,0 +1,22 @@
+pkgbase = predator-sense
+	pkgdesc = Predator Sense hardware monitoring and controls for Acer laptops
+	pkgver = 0.1.0
+	pkgrel = 1
+	url = https://github.com/
+	arch = any
+	license = MIT
+	depends = python
+	depends = gtk4
+	depends = python-gobject
+	optdepends = nvidia-utils: NVIDIA GPU telemetry
+	source = app.py
+	source = predator-kbd-effects.py
+	source = README.md
+	source = predator-sense.png
+	source = predator-sense.png
+	sha256sums = SKIP
+	sha256sums = SKIP
+	sha256sums = SKIP
+	sha256sums = SKIP
+
+pkgname = predator-sense
