@@ -1,7 +1,20 @@
 
 # PH16 LINUX SUPPORT
 
-### A Linux-focused control and monitoring dashboard for Acer Predator hardware
+## A Linux-focused control and monitoring dashboard for Acer Predator hardware
+
+
+## Disclaimer
+
+**PH16-Linux-Support is an independent, community-developed project.** It is not affiliated with, endorsed by, sponsored by, or officially associated with Acer Inc. or its subsidiaries.
+
+Acer, Predator, and related product names and trademarks belong to their respective owners and are used solely to identify compatible hardware and describe the project's purpose.
+
+This project is provided on an **"as is"** basis, without warranties of any kind. Hardware support and functionality may vary by laptop model, firmware version, and Linux configuration. Use it at your own risk.
+
+This project is not an official replacement for Acer's PredatorSense software.
+
+------------------------------------------------------------------------------
 
 **Built on Arch Linux · Hardware-aware · Open-source project**
 
@@ -12,6 +25,7 @@
 PH16 Linux Support was developed and tested on the PH16-72. Sensor availability, performance-profile controls, and keyboard lighting may behave differently on other laptop models, firmware versions, and Linux configurations.
 
 ------------------------------------------------------------------------
+
 
 ## Why this project exists
 
@@ -52,45 +66,14 @@ notice](screenshots/perfor.png)
 
 ## Current functionality
 
-  -----------------------------------------------------------------------
-  Area                    Status                  Notes
-  ----------------------- ----------------------- -----------------------
-  System dashboard        Implemented             Presents detected
-                                                  CPU/GPU telemetry, fan
-                                                  RPM, battery
-                                                  information, and
-                                                  current performance
-                                                  profile.
+| Area | Status | Notes |
+|---|---|---|
+| System dashboard | Implemented | Displays detected CPU/GPU telemetry, fan RPM, battery information, and the current performance profile. |
+| Sensor monitoring | Implemented | Displays available sensor readings and recent in-memory history. Samples are not logged to disk. |
+| Platform performance profiles | Implemented, hardware-dependent | Reads available platform profiles and requests authorization for profile changes. |
+| Keyboard lighting | Interface present; hardware support requires verification | The interface exposes lighting controls. Verify individual modes and effects on the target keyboard before describing them as fully working. |
+| Manual fan control | **Disabled / not validated** | Fan readings are monitoring-only. Manual control remains disabled pending model-specific validation. The app does not write PWM files or change the embedded controller. |
 
-  Sensor monitoring       Implemented             Displays available
-                                                  sensor readings and
-                                                  recent in-memory
-                                                  history. The UI notes
-                                                  that samples are not
-                                                  logged to disk.
-
-  Platform performance    Implemented,            Reads available
-  profiles                hardware-dependent      platform profiles and
-                                                  requests authorization
-                                                  for profile changes.
-
-  Keyboard lighting       Interface present;      The screenshot shows
-  interface               hardware support should lighting controls.
-                          be verified             Confirm each mode and
-                                                  effect on the target
-                                                  keyboard before
-                                                  describing it as fully
-                                                  working.
-
-  Manual fan control      **Disabled / not        Fan readings are
-                          validated**             monitoring-only. Manual
-                                                  control remains
-                                                  disabled pending
-                                                  model-specific
-                                                  validation. The app
-                                                  does not write PWM
-                                                  files or change the
-                                                  embedded controller.
   -----------------------------------------------------------------------
 
 > **Hardware compatibility matters.** Available sensors, profiles,
