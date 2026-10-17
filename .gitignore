@@ -40,4 +40,4 @@ Thumbs.db
 # Arch Linux package build artifacts
 /pkg/
 /src/
-/predator-sense-*.pkg.tar.zst
+/ph16-linux-support-*.pkg.tar.zst

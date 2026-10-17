@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Predator Sense Arch Linux: hardware monitoring and platform-profile selection."""
+"""PH16-Linux-Support: hardware monitoring and platform-profile selection."""
 
 import csv
 import glob
@@ -13,7 +13,7 @@ import gi
 gi.require_version("Gtk", "4.0")
 from gi.repository import Gtk, GLib
 
-APP_TITLE = "Predator Sense Arch Linux"
+APP_TITLE = "PH16-Linux-Support"
 REFRESH_MS = 2000
 PROFILE_PATH = "/sys/firmware/acpi/platform_profile"
 PROFILE_CHOICES_PATH = "/sys/firmware/acpi/platform_profile_choices"
@@ -454,7 +454,7 @@ class PredatorControl(Gtk.Application):
         self.window.set_child(outer)
         header = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=5)
         header.add_css_class("app-header")
-        title = Gtk.Label(label="PREDATOR SENSE")
+        title = Gtk.Label(label="PH16 LINUX SUPPORT")
         title.add_css_class("app-title")
         title.set_halign(Gtk.Align.START)
         subtitle = Gtk.Label(label="ARCH LINUX  /  HELIOS 16  ·  SYSTEM CONTROL")

@@ -17,7 +17,7 @@ PH16 Linux Support was developed and tested on the PH16-72. Sensor availability,
 
 Acer Predator laptops offer useful controls and system information
 through PredatorSense on Windows, but comparable support can be limited
-or fragmented on Linux. Predator Sense explores a unified interface for
+or fragmented on Linux. PH16-Linux-Support explores a unified interface for
 viewing hardware telemetry and interacting with supported platform
 controls from Arch Linux.
 
@@ -29,7 +29,7 @@ what has---and has not---been validated.
 
 ### System overview
 
-![Predator Sense dashboard showing CPU and GPU temperatures, fan speeds,
+![PH16-Linux-Support dashboard showing CPU and GPU temperatures, fan speeds,
 battery information, performance profile, and GPU
 telemetry](screenshots/predsense.png)
 
@@ -117,7 +117,7 @@ During development, I consulted existing open-source projects to research hardwa
 - **[Predator Sense for Linux](https://github.com/cleyton1986/predator-sense)** — consulted as a reference during research into Acer Predator hardware controls and Linux support.
 - **[lamparray-kbd](https://github.com/usamathpc/lamparray-kbd)** — used for keyboard LampArray integration and lighting functionality.
 
-Predator Sense provides its own GTK4 desktop interface, dashboard, telemetry presentation, performance-profile workflow, and application packaging. The project builds on existing Linux tooling where appropriate rather than claiming to implement every hardware interface from scratch.
+PH16-Linux-Support provides its own GTK4 desktop interface, dashboard, telemetry presentation, performance-profile workflow, and application packaging. The project builds on existing Linux tooling where appropriate rather than claiming to implement every hardware interface from scratch.
 
 Keyboard lighting depends on `lamparray-kbd`. Please refer to its upstream repository for its source, license, and attribution details.
 

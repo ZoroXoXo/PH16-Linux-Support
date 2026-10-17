@@ -1,8 +1,8 @@
-pkgbase = predator-sense
-	pkgdesc = Predator Sense hardware monitoring and controls for Acer laptops
+pkgbase = ph16-linux-support
+	pkgdesc = Hardware monitoring and controls for Acer Predator PH16-72 on Linux
 	pkgver = 0.1.0
 	pkgrel = 1
-	url = https://github.com/
+	url = https://github.com/ZoroXoXo/PH16-Linux-Support
 	arch = any
 	license = GPL-3.0-or-later
 	depends = python
@@ -12,7 +12,7 @@ pkgbase = predator-sense
 	source = app.py
 	source = predator-kbd-effects.py
 	source = README.md
-	source = predator-sense.png
+	source = ph16-linux-support.png
 	source = LICENSE
 	sha256sums = SKIP
 	sha256sums = SKIP
@@ -20,4 +20,4 @@ pkgbase = predator-sense
 	sha256sums = SKIP
 	sha256sums = SKIP
 
-pkgname = predator-sense
+pkgname = ph16-linux-support
