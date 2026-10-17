@@ -1,5 +1,5 @@
 
-# PREDATOR SENSE
+# PH16 LINUX SUPPORT
 
 ### A Linux-focused control and monitoring dashboard for Acer Predator hardware
 
@@ -9,7 +9,7 @@
 > **Development environment:** Arch Linux  
 > **Status:** Hardware-specific development; compatibility with other models has not been established.
 
-Predator Sense was developed and tested on the PH16-72. Sensor availability, performance-profile controls, and keyboard lighting may behave differently on other laptop models, firmware versions, and Linux configurations.
+PH16 Linux Support was developed and tested on the PH16-72. Sensor availability, performance-profile controls, and keyboard lighting may behave differently on other laptop models, firmware versions, and Linux configurations.
 
 ------------------------------------------------------------------------
 
@@ -110,7 +110,7 @@ notice](screenshots/perfor.png)
 
 ## Acknowledgements and Third-Party Projects
 
-Predator Sense was developed to address a gap in my Linux workflow on the Acer Predator Helios 16 (PH16-72). I wanted a convenient desktop interface for laptop controls and hardware monitoring on Arch Linux.
+PH16 Linux Support was developed to address a gap in my Linux workflow on the Acer Predator Helios 16 (PH16-72). I wanted a convenient desktop interface for laptop controls and hardware monitoring on Arch Linux.
 
 During development, I consulted existing open-source projects to research hardware interfaces and understand the available control mechanisms:
 
@@ -125,7 +125,7 @@ Hardware support is model-specific. Fan RPM monitoring is separate from manual f
 
 ### Licenses
 
-Predator Sense is licensed under the GNU General Public License v3.0 or later. The `lamparray-kbd` utility is a separate dependency; see its upstream repository for its license and notices. Other third-party projects retain their respective licenses.
+PH16 Linux Support is licensed under the GNU General Public License v3.0 or later. The `lamparray-kbd` utility is a separate dependency; see its upstream repository for its license and notices. Other third-party projects retain their respective licenses.
 
 ## Development status
 
