@@ -41,3 +41,5 @@ Thumbs.db
 /pkg/
 /src/
 /ph16-linux-support-*.pkg.tar.zst
+
+/predator-sense-*.pkg.tar.zst
